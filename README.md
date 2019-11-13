@@ -16,7 +16,7 @@
 - Install R Studio
 
 ### Resources
-- How to set an R project [here](https://support.rstudio.com/hc/en-us/articles/200526207-Using-Projects) 
+- How to set an R project [here](https://swcarpentry.github.io/r-novice-gapminder/02-project-intro/) 
 - Markdown basics [here](https://bookdown.org/yihui/rmarkdown/basics.html) 
 
 ### Usefull packages 
