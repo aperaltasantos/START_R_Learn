@@ -14,7 +14,7 @@
 
 ### Pre-requisites 
 - Install R Studio
-- Download zip repository 
+- Download zip repository, unzip it (move the unziped file to Descktop) 
 
 ![](pictures/Screenshot.png)
 
