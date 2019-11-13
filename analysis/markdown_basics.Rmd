@@ -1,0 +1,83 @@
+---
+title: "R Markdown Basics"
+author: "A Peralta Santos"
+date: "`r Sys.Date()`"
+params:
+output:
+  html_document:
+    code_download: TRUE
+---
+
+## Set the markdown setup 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  warning = FALSE, # Whether to display warnings
+  message = FALSE, # Whether to display messages
+  echo = FALSE, # prevent printing of the R code that generated the plot
+  eval = TRUE # Whether to evaluate the code and include its results
+  )
+
+set.seed(1) # Set the seed is important for getting reproducible reports 
+rm(list=ls()) # Clean the envorment
+options(scipen=4) # set the decimals 
+```
+
+
+### Create a inline URL
+A nice example [here](https://www.statpower.net/Content/310/R%20Stuff/SampleMarkdown.html) 
+
+## Equations 
+Use 2 dollar signs for an equation sepatared from text
+$$ E(log(Y_t)) = \beta_0 + \beta_{1-11} \sum_{m=1}^{m=12} MONTH_t + \beta_{12} TIME + \beta_{13} INT_t + \beta_{14} TIME*INT_t + log(POP_t) + \epsilon_t$$
+Use a single dolar sign for math along side the text $E(log(Y_t))$ 
+
+
+## Inline coding 
+
+```{r}
+x <- 2+2
+```
+
+
+The result of X is `r x`
+
+## Text formating 
+
+```{r}
+# to get some help install remedy package 
+devtools::install_github("ThinkR-open/remedy") # Install remedy 
+```
+
+
+#### Footnote
+
+^[This is a footnote]
+^[this is another footnote]
+
+#### Insert and URL
+[this is an URL](https://www.washington.edu/research/research-centers/start-center/)
+
+Write in **Bold**
+
+Write in *Italic*
+
+
+#### Create lists 
+
+No special order
+
++  item 1
++  item 2
++  item 3 
+
+
+Special order
+
+1. item 1
+2. item 2
+3. item 3
+ 
+
+
+
