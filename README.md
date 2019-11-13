@@ -14,6 +14,9 @@
 
 ### Pre-requisites 
 - Install R Studio
+- Download zip repository 
+
+![](pictures/Screenshot.png)
 
 ### Resources
 - How to set an R project [here](https://swcarpentry.github.io/r-novice-gapminder/02-project-intro/) 
