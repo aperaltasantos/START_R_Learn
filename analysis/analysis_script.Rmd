@@ -1,0 +1,296 @@
+---
+title: "Data Wrangling with Dplyr"
+author: "Peralta santos"
+date: "11/13/2019"
+output: html_document
+---
+
+```{r}
+# Install if needed
+#install.packages("tidyverse")
+#install.packages("readr")
+#install.packages("here")
+
+library(tidyverse) # Versatile package for data analysis
+library(readr) # read csv files
+library(here) #easier to deal with relative paths 
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse    = TRUE,
+  warning     = FALSE, # Whether to display warnings
+  message     = FALSE, # Whether to display messages
+  echo        = TRUE,  # In this case we want to see the code 
+  eval        = TRUE   # Whether to evaluate the code and include its results
+  )
+
+set.seed(1)       # Set the seed is important for getting reproducible reports 
+options(scipen=2) # set the decimals 
+```
+
+About the dataset 
+
+sns is a dataset of telephone triage, with the date, the type of call and the number 
+
+```{r}
+#Load the data
+sns <- read_csv(here::here("data", "sns.csv"))
+dim(sns)
+sns 
+```
+
+# Data Wrangling with Dplyr
+
+Dplyr aims to provide a function for each basic verb of data manipulation:
+
++ filter() to select cases based on their values.
++ arrange() to reorder the cases.
++ select() and rename() to select variables based on their names.
++ mutate() and transmute() to add new variables that are functions of existing variables.
++ summarise() to condense multiple values to a single value.
++ sample_n() and sample_frac() to take random samples.
+
+more infro here -> https://cran.r-project.org/web/packages/dplyr/vignettes/dplyr.html 
+
+Deal with dates
+```{r}
+# Transform to date with Libridate 
+sns$date <- as.Date(sns$periodo, "%Y-%m-%d")
+sns$year <- as.factor(format(sns$date,'%Y'))
+# we will cover this later 
+sns <- sns %>%
+  mutate(month_name=months(date)
+  )
+sns$week <- lubridate::isoweek(sns$date)
+```
+
+create a new variable with mutate and recode
+```{r}
+sns <- sns %>%
+  mutate(type_call = recode(
+    indicador, 
+     "Encaminhamentos p/ Serviço Urgência" = "Emergency Care",
+     "Encaminhamentos p/ Autocuidados" = "Self-care",
+     "Encaminhamentos p/ CIAV" = "Poison Control hot-line",
+     "Encaminhamentos p/ CSP" = "Primary care",
+     "Encaminhamentos p/ INEM" = "Prehospital Emergency Care", 
+     "Encaminhamentos p/ Outros" = "Other"
+    ),
+     number_calls = valor_absoluto
+  )
+```
+
+use select to trim our dataset 
+```{r}
+sns <- sns %>%
+  select(date,
+         year,
+         month_name,
+         week,
+         type_call,
+         number_calls
+  )
+```
+
+use filter to play with data 
+```{r}
+sns1 <- sns %>%
+  filter(type_call =="Emergency Care"
+  )
+
+sns1 #that looks nice
+
+# more complex filtering 
+sns2 <- sns %>%
+  filter(type_call =="Emergency Care" & 
+           number_calls >1000
+  )
+
+sns2 #that looks nice
+```
+
+use group_by and summarize to colapse data 
+
+```{r}
+# Create a Sum variable daily
+sns3 <-sns %>% group_by(date) %>% 
+            summarise(calls_sum=sum(number_calls)
+                      )
+
+# Other way of summarizing the data 
+# Create a Sum variable daily
+sns4 <-sns %>% group_by(month_name) %>% 
+            summarise(calls_mean=mean(number_calls),
+                      calls_sd=sd(number_calls),
+                      calls_max=max(number_calls),
+                      calls_min=min(number_calls)
+                      )
+
+# now lets summarize by week
+sns5 <-sns %>% group_by(week) %>% 
+            summarise(calls_mean=mean(number_calls),
+                      calls_sd=sd(number_calls),
+                      calls_max=max(number_calls),
+                      calls_min=min(number_calls)
+                      )
+
+# PRO TIPS
+# The naming of the dataframes is horrible, they should be short and explanatory
+sns_sum_week <- sns5
+```
+
+save the table 
+```{r}
+#This is for later use
+save(sns4, file = "table_desc1.RData")
+```
+
+# Modeling 
+
+```{r}
+# Create a time variable 
+sns3<- sns3 %>% 
+  mutate(time = 1:n()
+         )
+
+# Create a cut off for a policy change 
+sns3$start <-  ifelse(sns3$date >= "2017-10-01", 1,0)
+```
+
+```{r}
+# create a model in this case a glm with a link long and a poisson family 
+# its count data, it should be fine
+
+m1 <- glm(
+  calls_sum ~ time + 
+    start, 
+  family="poisson",
+  data = sns3)
+```
+
+now lets create a tidy model
+```{r}
+library(broom)
+
+table_m1 <- tidy(m1, 
+                 conf.int=TRUE, 
+                 exponentiate = TRUE)
+
+table_m1
+```
+
+This is a format we can work with 
+```{r}
+table_m1<- table_m1 %>%
+  dplyr::select(term, 
+         estimate, 
+         conf.low, 
+         conf.high,
+         p.value)
+
+table_m1<- table_m1 %>%
+  mutate(term = recode(term, 
+     "(Intercept)" = "Baseline weekly n. calls",
+     "time" = "Time trend",
+     "start" = "Effect after 2017")
+  )
+
+
+```
+
+
+save the table 
+```{r}
+#This is for later use
+save(table_m1, file = "table_m1.RData")
+```
+
+
+
+Now lets calculate the model predicted values 
+```{r}
+pred_m1<- augment(m1)
+
+# We are still in the log scale we need to exponentiate 
+pred_m1$fit <- exp(pred_m1$.fitted)
+pred_m1$UCI <- exp(pred_m1$.fitted + (1.96 * pred_m1$.se.fit) )
+pred_m1$LCI <- exp(pred_m1$.fitted - (1.96 * pred_m1$.se.fit) )
+
+# Tip
+#Try to create the above variables using Dplyr mutate 
+```
+
+
+
+# Plot the data 
+```{r}
+
+
+plot.fit <- ggplot() +    # we leave it blank to have more flexibility
+      #Model  Prediction
+      geom_line(data = pred_m1,                # This creates the oberved valued line
+               aes(x=time,               # we need to assign a != Y axis 
+                   y = fit),
+               color="red",              #type of plot, in this case is a line color red and dotted 
+               geom="line",
+               lwd=1,
+               linetype="dotted") +
+  # this create the shadow of the CI
+  geom_ribbon(data = pred_m1,            
+              aes(x=time,
+                  ymin=LCI-1000,       # Our model is so bad that we need to add uncertancy to the CI 
+                  ymax=UCI+1000),      # Our model is so bad that we need to add uncertancy to the CI
+              alpha=0.5,
+              fill="grey") + 
+    #Observed values
+  geom_line(data = pred_m1,               # This creates the oberved valued line
+               aes(x=time,               # we need to assign a != Y axis 
+                   y = calls_sum),   
+                   color="darkcyan",     # and color 
+               geom="line",
+               lwd=1
+            ) +
+  #Create a vertical line with intercep x=44
+    geom_vline(xintercept= 305, 
+             colour="orange") + 
+  #Create a text with intercep x=44
+  geom_text(aes(x=305, 
+                label="Policy change",y=30000), 
+            colour="black", 
+            angle=90, 
+            vjust = 1.2, 
+            size = 3)  +
+  #Lets change the titles 
+  labs(title = "Number of calls to telephone triage system",
+           subtitle = "Observed and predicted valued",
+           y = "Number of Calls",
+           x = "Time in days",
+           caption = "Source: Portuguese Ministry of Health API | (horrible) poisson distribution model")  +
+theme_minimal() +
+theme(plot.title=element_text( face="bold", 
+                               hjust=0.5,
+                               lineheight=1.2),
+      plot.subtitle=element_text(hjust=0.5),
+      legend.position="top",
+      legend.direction="horizontal"
+      )
+
+plot.fit
+ggsave( here::here("reports", "plot_model.png"))
+```
+
+
+The computational environment that was used to generate this version is as follows:
+```{r echo = FALSE}
+devtools::session_info()
+```
+
+We want the script in the reports folder
+```{r}
+rmarkdown::render('analysis_script.Rmd', 
+                  output_file='analysis_script_final.html', 
+                  output_dir=here::here("reports"))
+```
+
+#### The end 
